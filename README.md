@@ -15,7 +15,7 @@ go get github.com/gorilla/mux
 Launch the local server:
 
 ```
-go get github.com/gorilla/mux
+go run ./server/main.go
 ```
 
 Test the application browsing the API:
