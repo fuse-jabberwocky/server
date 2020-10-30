@@ -12,6 +12,8 @@ Install local libraries (first time you execute):
 go get github.com/gorilla/mux
 ```
 
+**Warning:** you need to provide a local dependency while an issue is fixed on `camel k` upstream, [see issue](https://github.com/fuse-jabberwocky/jabberwocky-api/issues/1).
+
 Launch the local server:
 
 ```
