@@ -9,10 +9,44 @@
 package swagger
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+
+	v1alpha1 "kamelets/pkg/apis/camel/v1alpha1"
+
+	// TODO this is a workaround while the issue https://github.com/apache/camel-k/issues/1791 is fixed
+	"kamelets/pkg/client/clientset/versioned"
+	kamel "kamelets/pkg/client/clientset/versioned"
+
+	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 )
+
+var kubeClient, ctx = localKubeConfiguration()
+
+func localKubeConfiguration() (*versioned.Clientset, context.Context) {
+	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	log.Println("Using kubeconfig file: ", kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client, err := kamel.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("Error building example clientset: %v", err)
+	}
+	ctx := context.Background()
+
+	return client, ctx
+}
 
 func AddChannel(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -20,18 +54,100 @@ func AddChannel(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddConnector(w http.ResponseWriter, r *http.Request) {
+	result, createError := createConnector(r)
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	if createError != nil {
+		printResponseError(createError, w)
+		return
+	}
+	w.WriteHeader(201)
+	printResponse(result, w)
+}
+
+func createConnector(r *http.Request) (*v1alpha1.Kamelet, error) {
+	var connector Connector
+	_ = json.NewDecoder(r.Body).Decode(&connector)
+
+	kameletSpec, _ := json.Marshal(connector.Configuration)
+	fmt.Println("Spec: ", string(kameletSpec))
+
+	kamelet := v1alpha1.Kamelet{}
+	kamelet.Name = connector.Name
+	kamelet.Spec.Definition.Default = &v1alpha1.JSON{kameletSpec}
+
+	return kubeClient.CamelV1alpha1().Kamelets("default").Create(ctx, &kamelet, metav1.CreateOptions{
+		metav1.TypeMeta{
+			Kind:       "Kamelet",
+			APIVersion: "camel.apache.org/v1alpha1"}, nil, ""})
 }
 
 func AddEventSink(w http.ResponseWriter, r *http.Request) {
+	result, createError := createEventSourceOrSink(r, "destination")
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	if createError != nil {
+		printResponseError(createError, w)
+		return
+	}
+	w.WriteHeader(201)
+	printResponse(result, w)
 }
 
 func AddEventSource(w http.ResponseWriter, r *http.Request) {
+	result, createError := createEventSourceOrSink(r, "source")
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	if createError != nil {
+		printResponseError(createError, w)
+		return
+	}
+	w.WriteHeader(201)
+	printResponse(result, w)
+}
+
+func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.KameletBinding, error) {
+	var eventSourceOrSink EventSourceOrSink
+	_ = json.NewDecoder(r.Body).Decode(&eventSourceOrSink)
+
+	emptyProps := []byte("{}")
+
+	eventOrigin := v1alpha1.Endpoint{
+		Ref: &corev1.ObjectReference{
+			Kind:       "Kamelet",
+			APIVersion: "camel.apache.org/v1alpha1",
+			Name:       eventSourceOrSink.ConnectorSourceName},
+		Properties: v1alpha1.EndpointProperties{emptyProps}}
+	eventDestination := v1alpha1.Endpoint{
+		Ref: &corev1.ObjectReference{
+			Kind:       "InMemoryChannel",
+			APIVersion: "messaging.knative.dev/v1beta1",
+			Name:       eventSourceOrSink.ChannelName},
+		Properties: v1alpha1.EndpointProperties{emptyProps}}
+
+	kameletBinding := v1alpha1.NewKameletBinding("default", eventSourceOrSink.Name)
+
+	// It's either a source or a sink, based on the origin of events
+	if kameletType == "source" {
+		kameletBinding.Spec = v1alpha1.KameletBindingSpec{Source: eventOrigin, Sink: eventDestination}
+	} else {
+		kameletBinding.Spec = v1alpha1.KameletBindingSpec{Source: eventDestination, Sink: eventOrigin}
+	}
+
+	return kubeClient.CamelV1alpha1().KameletBindings("default").Create(ctx, &kameletBinding, metav1.CreateOptions{
+		metav1.TypeMeta{
+			Kind:       "KameletBinding",
+			APIVersion: "camel.apache.org/v1alpha1"}, nil, ""})
+}
+
+func printResponse(obj interface{}, w http.ResponseWriter) {
+	data, _ := json.Marshal(obj)
+	fmt.Fprintf(w, string(data))
+}
+
+func printResponseError(err error, w http.ResponseWriter) {
+	w.WriteHeader(500)
+	fmt.Fprintf(w, err.Error())
 }
 
 func GetChannelByName(w http.ResponseWriter, r *http.Request) {
@@ -57,16 +173,16 @@ func GetConnectorByName(w http.ResponseWriter, r *http.Request) {
 	printResponse(connector, w)
 }
 
-func printResponse(obj interface{}, w http.ResponseWriter) {
-	data, _ := json.Marshal(obj)
-	fmt.Fprintf(w, string(data))
-}
-
 func GetConnectors(w http.ResponseWriter, r *http.Request) {
+	kamelets, _ := kubeClient.CamelV1alpha1().Kamelets("default").List(ctx, metav1.ListOptions{})
+
+	connectors := []Connector{}
+	for _, kamelet := range kamelets.Items {
+		conf, _ := yaml.Marshal(kamelet)
+		connectors = append(connectors, Connector{kamelet.Name, kamelet.Labels["camel.apache.org/kamelet.type"], string(conf)})
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	connectors := make([]Connector, 2)
-	connectors[0] = Connector{"my-connector-1", "source", "some yaml configuration here!"}
-	connectors[1] = Connector{"my-connector-2", "sink", "some yaml configuration here!"}
 	w.WriteHeader(http.StatusOK)
 	printResponse(connectors, w)
 }
@@ -79,10 +195,17 @@ func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSinks(w http.ResponseWriter, r *http.Request) {
+	kameletBindings, _ := kubeClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
+
+	eventSinks := []EventSourceOrSink{}
+	for _, kameletBinding := range kameletBindings.Items {
+		if kameletBinding.Spec.Sink.Ref.Kind == "Kamelet" {
+			// From sink perspective, Channel is the source, Source is the destination
+			eventSinks = append(eventSinks, EventSourceOrSink{kameletBinding.Name, kameletBinding.Spec.Sink.Ref.Name, kameletBinding.Spec.Source.Ref.Name, nil})
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	eventSinks := make([]EventSourceOrSink, 2)
-	eventSinks[0] = EventSourceOrSink{"my-event-sink-1", "my-connector-sink", "my-channel", nil}
-	eventSinks[1] = EventSourceOrSink{"my-event-sink-2", "my-connector-sink", "my-channel", nil}
 	w.WriteHeader(http.StatusOK)
 	printResponse(eventSinks, w)
 }
@@ -95,10 +218,17 @@ func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSources(w http.ResponseWriter, r *http.Request) {
+	kameletBindings, _ := kubeClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
+
+	eventSources := []EventSourceOrSink{}
+	for _, kameletBinding := range kameletBindings.Items {
+		if kameletBinding.Spec.Source.Ref.Kind == "Kamelet" {
+			// From source perspective, Source is the source, Channel is the destination
+			eventSources = append(eventSources, EventSourceOrSink{kameletBinding.Name, kameletBinding.Spec.Source.Ref.Name, kameletBinding.Spec.Sink.Ref.Name, nil})
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	eventSources := make([]EventSourceOrSink, 2)
-	eventSources[0] = EventSourceOrSink{"my-event-source", "my-connector-source", "my-channel", nil}
-	eventSources[1] = EventSourceOrSink{"my-event-source", "my-connector-source", "my-channel", nil}
 	w.WriteHeader(http.StatusOK)
 	printResponse(eventSources, w)
 }
