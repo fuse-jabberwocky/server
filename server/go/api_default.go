@@ -17,11 +17,10 @@ import (
 	"os"
 	"path/filepath"
 
-	v1alpha1 "kamelets/pkg/apis/camel/v1alpha1"
+	v1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 
-	// TODO this is a workaround while the issue https://github.com/apache/camel-k/issues/1791 is fixed
-	"kamelets/pkg/client/clientset/versioned"
-	kamel "kamelets/pkg/client/clientset/versioned"
+	"github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
+	kamel "github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
 
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
