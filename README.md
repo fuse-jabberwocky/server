@@ -13,7 +13,7 @@ go get github.com/gorilla/mux
 ...
 ```
 
-Launch the local server:
+Make sure your Kubernetes cluster is up and running (ie, Minikube), then, launch the local server:
 
 ```
 go run ./server/main.go
