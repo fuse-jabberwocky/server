@@ -10,6 +10,7 @@ Install local libraries (first time you execute):
 
 ```
 go get github.com/gorilla/mux
+...
 ```
 
 Launch the local server:
@@ -37,3 +38,6 @@ $ http http://localhost:8080/v0/connector
 ]
 
 ```
+## Caveat
+
+The project is still in prototype phase, structure and dependency managment need to be reviewed ([#6](https://github.com/fuse-jabberwocky/jabberwocky-api/issues/6))
