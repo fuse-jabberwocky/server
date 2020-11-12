@@ -11,6 +11,7 @@ package swagger
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"path/filepath"
 
 	v1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
 	kamel "github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
@@ -25,31 +27,42 @@ import (
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
+
+	strimzi "./strimzi"
 )
 
-var kubeClient, ctx = localKubeConfiguration()
+var kamelClient, kubeClient, ctx = localKubeConfiguration()
 
-func localKubeConfiguration() (*versioned.Clientset, context.Context) {
+func localKubeConfiguration() (*versioned.Clientset, client.Client, context.Context) {
 	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	log.Println("Using kubeconfig file: ", kubeconfig)
 	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkFatalError(err)
 
-	client, err := kamel.NewForConfig(cfg)
-	if err != nil {
-		log.Fatalf("Error building example clientset: %v", err)
-	}
+	kamelClient, err := kamel.NewForConfig(cfg)
+	checkFatalError(err)
+
+	kubeClient, err := client.New(cfg, client.Options{})
+	checkFatalError(err)
+
 	ctx := context.Background()
 
-	return client, ctx
+	return kamelClient, kubeClient, ctx
+}
+
+func checkFatalError(err error) {
+	if err != nil {
+		log.Fatal(err)
+		// Non recoverable error
+		os.Exit(1)
+	}
 }
 
 func AddChannel(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func AddConnector(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +88,7 @@ func createConnector(r *http.Request) (*v1alpha1.Kamelet, error) {
 	kamelet.Name = connector.Name
 	kamelet.Spec.Definition.Default = &v1alpha1.JSON{kameletSpec}
 
-	return kubeClient.CamelV1alpha1().Kamelets("default").Create(ctx, &kamelet, metav1.CreateOptions{
+	return kamelClient.CamelV1alpha1().Kamelets("default").Create(ctx, &kamelet, metav1.CreateOptions{
 		metav1.TypeMeta{
 			Kind:       "Kamelet",
 			APIVersion: "camel.apache.org/v1alpha1"}, nil, ""})
@@ -119,8 +132,8 @@ func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.Kam
 		Properties: v1alpha1.EndpointProperties{emptyProps}}
 	eventDestination := v1alpha1.Endpoint{
 		Ref: &corev1.ObjectReference{
-			Kind:       "InMemoryChannel",
-			APIVersion: "messaging.knative.dev/v1beta1",
+			Kind:       "KafkaTopic",
+			APIVersion: "kafka.strimzi.io/v1beta1",
 			Name:       eventSourceOrSink.ChannelName},
 		Properties: v1alpha1.EndpointProperties{emptyProps}}
 
@@ -133,7 +146,7 @@ func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.Kam
 		kameletBinding.Spec = v1alpha1.KameletBindingSpec{Source: eventDestination, Sink: eventOrigin}
 	}
 
-	return kubeClient.CamelV1alpha1().KameletBindings("default").Create(ctx, &kameletBinding, metav1.CreateOptions{
+	return kamelClient.CamelV1alpha1().KameletBindings("default").Create(ctx, &kameletBinding, metav1.CreateOptions{
 		metav1.TypeMeta{
 			Kind:       "KameletBinding",
 			APIVersion: "camel.apache.org/v1alpha1"}, nil, ""})
@@ -150,30 +163,37 @@ func printResponseError(err error, w http.ResponseWriter) {
 }
 
 func GetChannelByName(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	channel := Channel{"my-channel", "knative", "some yaml configuration here!"}
-	w.WriteHeader(http.StatusOK)
-	printResponse(channel, w)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func GetChannels(w http.ResponseWriter, r *http.Request) {
+
+	kafkaTopics := &unstructured.UnstructuredList{}
+	kafkaTopics.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "kafka.strimzi.io",
+		Kind:    "KafkaTopic",
+		Version: "v1beta1",
+	})
+	_ = kubeClient.List(context.Background(), kafkaTopics)
+
+	channels := []Channel{}
+	for _, kafkaTopic := range kafkaTopics.Items {
+		parsedTopic, _ := strimzi.FromUnstructuredObject(kafkaTopic.Object)
+		data, _ := json.Marshal(parsedTopic)
+		channels = append(channels, Channel{parsedTopic.Metadata.Name, "kafka", string(data)})
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	channels := make([]Channel, 2)
-	channels[0] = Channel{"my-channel-1", "knative", "some yaml configuration here!"}
-	channels[1] = Channel{"my-channel-2", "kafka", "some yaml configuration here!"}
 	w.WriteHeader(http.StatusOK)
 	printResponse(channels, w)
 }
 
 func GetConnectorByName(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	connector := Connector{"my-connector", "sink", "some yaml configuration here!"}
-	w.WriteHeader(http.StatusOK)
-	printResponse(connector, w)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func GetConnectors(w http.ResponseWriter, r *http.Request) {
-	kamelets, _ := kubeClient.CamelV1alpha1().Kamelets("default").List(ctx, metav1.ListOptions{})
+	kamelets, _ := kamelClient.CamelV1alpha1().Kamelets("default").List(ctx, metav1.ListOptions{})
 
 	connectors := []Connector{}
 	for _, kamelet := range kamelets.Items {
@@ -187,14 +207,11 @@ func GetConnectors(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	eventSink := EventSourceOrSink{"my-event-sink", "my-connector-sink", "my-channel", nil}
-	w.WriteHeader(http.StatusOK)
-	printResponse(eventSink, w)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func GetEventSinks(w http.ResponseWriter, r *http.Request) {
-	kameletBindings, _ := kubeClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
+	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
 
 	eventSinks := []EventSourceOrSink{}
 	for _, kameletBinding := range kameletBindings.Items {
@@ -210,14 +227,11 @@ func GetEventSinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	eventSource := EventSourceOrSink{"my-event-source", "my-connector-source", "my-channel", nil}
-	w.WriteHeader(http.StatusOK)
-	printResponse(eventSource, w)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func GetEventSources(w http.ResponseWriter, r *http.Request) {
-	kameletBindings, _ := kubeClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
+	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
 
 	eventSources := []EventSourceOrSink{}
 	for _, kameletBinding := range kameletBindings.Items {
@@ -233,21 +247,17 @@ func GetEventSources(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateChannel(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func UpdateConnector(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func UpdateEventSink(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func UpdateEventSource(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
+	printResponseError(errors.New("Not yet implemented"), w)
 }
