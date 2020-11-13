@@ -380,18 +380,18 @@ components:
       $ref: '#/components/schemas/EventSourceOrSink'
     EventSourceOrSink:
       required:
-      - channelName
-      - connectorSourceName
+      - channelRef
+      - connectorRef
       - name
       type: object
       properties:
         name:
           type: string
           example: my-event-source
-        connectorSourceName:
+        connectorRef:
           type: string
           description: the connector which produce/consume the events
-        channelName:
+        channelRef:
           type: string
           example: then channel where/from to publish/consume events
         properties:
@@ -402,9 +402,9 @@ components:
       description: abstract object that can represent either an event source or event
         sink
       example:
-        connectorSourceName: connectorSourceName
+        connectorRef: my-connector
         name: my-event-source
-        channelName: then channel where/from to publish/consume events
+        channelRef: my-channel
         properties:
         - name: my-key
           value: my-value

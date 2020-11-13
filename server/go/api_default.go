@@ -128,13 +128,13 @@ func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.Kam
 		Ref: &corev1.ObjectReference{
 			Kind:       "Kamelet",
 			APIVersion: "camel.apache.org/v1alpha1",
-			Name:       eventSourceOrSink.ConnectorSourceName},
+			Name:       eventSourceOrSink.ConnectorRef},
 		Properties: v1alpha1.EndpointProperties{emptyProps}}
 	eventDestination := v1alpha1.Endpoint{
 		Ref: &corev1.ObjectReference{
 			Kind:       "KafkaTopic",
 			APIVersion: "kafka.strimzi.io/v1beta1",
-			Name:       eventSourceOrSink.ChannelName},
+			Name:       eventSourceOrSink.ChannelRef},
 		Properties: v1alpha1.EndpointProperties{emptyProps}}
 
 	kameletBinding := v1alpha1.NewKameletBinding("default", eventSourceOrSink.Name)

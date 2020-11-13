@@ -10,12 +10,11 @@ package swagger
 
 // abstract object that can represent either an event source or event sink
 type EventSourceOrSink struct {
-
 	Name string `json:"name"`
 	// the connector which produce/consume the events
-	ConnectorSourceName string `json:"connectorSourceName"`
+	ConnectorRef string `json:"connectorRef"`
 
-	ChannelName string `json:"channelName"`
+	ChannelRef string `json:"channelRef"`
 	// the list of properties required by the connector
 	Properties []Property `json:"properties,omitempty"`
 }
