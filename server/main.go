@@ -20,6 +20,7 @@ import (
 	//    sw "github.com/myname/myrepo/go"
 	//
 	sw "./go"
+	"github.com/gorilla/handlers"
 )
 
 func main() {
@@ -27,5 +28,14 @@ func main() {
 
 	router := sw.NewRouter()
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	//log.Fatal(http.ListenAndServe(":8080", router))
+
+	//methods := handlers.AllowedMethods([]string{"OPTIONS", "DELETE", "GET", "HEAD", "POST", "PUT"})
+
+	log.Fatal(http.ListenAndServe(":8080",
+		handlers.CORS(
+			handlers.AllowedOrigins([]string{"*"}),
+			handlers.AllowedMethods([]string{"OPTIONS", "DELETE", "GET", "HEAD", "POST", "PUT"}),
+			handlers.AllowedHeaders([]string{"Content-Type", "*"}),
+		)(router)))
 }

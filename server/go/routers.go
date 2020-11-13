@@ -46,7 +46,19 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World!")
 }
 
+/*func Options(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+	fmt.Fprintf(w, "OK")
+}*/
+
 var routes = Routes{
+	/*Route{
+		"Options",
+		"OPTIONS",
+		"/v0/*",
+		Options,
+	},*/
+
 	Route{
 		"Index",
 		"GET",

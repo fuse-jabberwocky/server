@@ -68,13 +68,11 @@ func AddChannel(w http.ResponseWriter, r *http.Request) {
 func AddConnector(w http.ResponseWriter, r *http.Request) {
 	result, createError := createConnector(r)
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if createError != nil {
 		printResponseError(createError, w)
 		return
 	}
-	w.WriteHeader(201)
-	printResponse(result, w)
+	printResponse(result, 201, w)
 }
 
 func createConnector(r *http.Request) (*v1alpha1.Kamelet, error) {
@@ -97,25 +95,22 @@ func createConnector(r *http.Request) (*v1alpha1.Kamelet, error) {
 func AddEventSink(w http.ResponseWriter, r *http.Request) {
 	result, createError := createEventSourceOrSink(r, "destination")
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if createError != nil {
 		printResponseError(createError, w)
 		return
 	}
-	w.WriteHeader(201)
-	printResponse(result, w)
+
+	printResponse(result, 201, w)
 }
 
 func AddEventSource(w http.ResponseWriter, r *http.Request) {
 	result, createError := createEventSourceOrSink(r, "source")
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	if createError != nil {
 		printResponseError(createError, w)
 		return
 	}
-	w.WriteHeader(201)
-	printResponse(result, w)
+	printResponse(result, 201, w)
 }
 
 func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.KameletBinding, error) {
@@ -152,8 +147,10 @@ func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.Kam
 			APIVersion: "camel.apache.org/v1alpha1"}, nil, ""})
 }
 
-func printResponse(obj interface{}, w http.ResponseWriter) {
+func printResponse(obj interface{}, status int, w http.ResponseWriter) {
 	data, _ := json.Marshal(obj)
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(status)
 	fmt.Fprintf(w, string(data))
 }
 
@@ -183,9 +180,7 @@ func GetChannels(w http.ResponseWriter, r *http.Request) {
 		channels = append(channels, Channel{parsedTopic.Metadata.Name, "kafka", string(data)})
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	printResponse(channels, w)
+	printResponse(channels, http.StatusOK, w)
 }
 
 func GetConnectorByName(w http.ResponseWriter, r *http.Request) {
@@ -201,9 +196,7 @@ func GetConnectors(w http.ResponseWriter, r *http.Request) {
 		connectors = append(connectors, Connector{kamelet.Name, kamelet.Labels["camel.apache.org/kamelet.type"], string(conf)})
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	printResponse(connectors, w)
+	printResponse(connectors, http.StatusOK, w)
 }
 
 func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
@@ -221,9 +214,7 @@ func GetEventSinks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	printResponse(eventSinks, w)
+	printResponse(eventSinks, http.StatusOK, w)
 }
 
 func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
@@ -241,9 +232,7 @@ func GetEventSources(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	printResponse(eventSources, w)
+	printResponse(eventSources, http.StatusOK, w)
 }
 
 func UpdateChannel(w http.ResponseWriter, r *http.Request) {
