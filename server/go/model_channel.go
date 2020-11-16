@@ -9,10 +9,12 @@
 package swagger
 
 type Channel struct {
-
 	Name string `json:"name"`
 	// the channel type, a knative destination, a kafka topic or a generic URI
 	Type_ string `json:"type"`
+
+	EventSources []EventSourceOrSink `json:"eventSources,omitempty"`
+	EventSinks   []EventSourceOrSink `json:"eventSinks,omitempty"`
 
 	Configuration string `json:"configuration"`
 }

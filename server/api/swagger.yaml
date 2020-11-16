@@ -335,6 +335,8 @@ components:
       - configuration
       - name
       - type
+      - eventSourceInstances
+      - eventSinkInstances
       type: object
       properties:
         name:
@@ -346,6 +348,16 @@ components:
           enum:
           - source
           - sink
+        eventSourceInstances:
+          type: array
+          description: the list of running event source instances
+          items:
+            $ref: '#/components/schemas/EventSource'
+        eventSinksInstances:
+          type: array
+          description: the list of running event sinks instances
+          items:
+            $ref: '#/components/schemas/EventSink'            
         configuration:
           type: string
           example: TODO put a simple valid yaml configuration
@@ -358,6 +370,8 @@ components:
       - configuration
       - name
       - type
+      - eventSources
+      - eventSinks
       type: object
       properties:
         name:
@@ -370,6 +384,16 @@ components:
         configuration:
           type: string
           example: TODO put a simple valid yaml configuration
+        eventSources:
+          type: array
+          description: the list of event source bound
+          items:
+            $ref: '#/components/schemas/EventSource'
+        eventSinks:
+          type: array
+          description: the list of event sink bound
+          items:
+            $ref: '#/components/schemas/EventSink'            
       example:
         configuration: TODO put a simple valid yaml configuration
         name: my-channel

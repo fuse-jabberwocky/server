@@ -177,7 +177,10 @@ func GetChannels(w http.ResponseWriter, r *http.Request) {
 	for _, kafkaTopic := range kafkaTopics.Items {
 		parsedTopic, _ := strimzi.FromUnstructuredObject(kafkaTopic.Object)
 		data, _ := json.Marshal(parsedTopic)
-		channels = append(channels, Channel{parsedTopic.Metadata.Name, "kafka", string(data)})
+		channelName := parsedTopic.Metadata.Name
+		eventSources := filterByChannelRef(channelName, getEventSources())
+		eventSinks := filterByChannelRef(channelName, getEventSinks())
+		channels = append(channels, Channel{channelName, "kafka", eventSources, eventSinks, string(data)})
 	}
 
 	printResponse(channels, http.StatusOK, w)
@@ -188,15 +191,30 @@ func GetConnectorByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetConnectors(w http.ResponseWriter, r *http.Request) {
+	connectors := getConnectors()
+	printResponse(connectors, http.StatusOK, w)
+}
+
+func getConnectors() (connectors []Connector) {
 	kamelets, _ := kamelClient.CamelV1alpha1().Kamelets("default").List(ctx, metav1.ListOptions{})
 
-	connectors := []Connector{}
+	connectors = []Connector{}
 	for _, kamelet := range kamelets.Items {
 		conf, _ := yaml.Marshal(kamelet)
-		connectors = append(connectors, Connector{kamelet.Name, kamelet.Labels["camel.apache.org/kamelet.type"], string(conf)})
+		connectorName := kamelet.Name
+		connectorType := kamelet.Labels["camel.apache.org/kamelet.type"]
+		eventSourceInstances := []EventSourceOrSink{}
+		eventSinkInstances := []EventSourceOrSink{}
+		if connectorType == "source" {
+			eventSourceInstances = filterByConnectorRef(connectorName, getEventSources())
+		} else if connectorType == "sink" {
+			eventSinkInstances = filterByConnectorRef(connectorName, getEventSinks())
+		}
+		connectors = append(connectors, Connector{kamelet.Name, connectorType,
+			eventSourceInstances, eventSinkInstances, string(conf)})
 	}
 
-	printResponse(connectors, http.StatusOK, w)
+	return
 }
 
 func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
@@ -204,9 +222,14 @@ func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSinks(w http.ResponseWriter, r *http.Request) {
+	eventSinks := getEventSinks()
+	printResponse(eventSinks, http.StatusOK, w)
+}
+
+func getEventSinks() (eventSinks []EventSourceOrSink) {
 	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
 
-	eventSinks := []EventSourceOrSink{}
+	eventSinks = []EventSourceOrSink{}
 	for _, kameletBinding := range kameletBindings.Items {
 		if kameletBinding.Spec.Sink.Ref.Kind == "Kamelet" {
 			// From sink perspective, Channel is the source, Source is the destination
@@ -214,7 +237,7 @@ func GetEventSinks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	printResponse(eventSinks, http.StatusOK, w)
+	return
 }
 
 func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
@@ -222,17 +245,43 @@ func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSources(w http.ResponseWriter, r *http.Request) {
+	eventSources := getEventSources()
+	printResponse(eventSources, http.StatusOK, w)
+}
+
+func getEventSources() (eventSources []EventSourceOrSink) {
 	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
 
-	eventSources := []EventSourceOrSink{}
+	eventSources = []EventSourceOrSink{}
 	for _, kameletBinding := range kameletBindings.Items {
 		if kameletBinding.Spec.Source.Ref.Kind == "Kamelet" {
-			// From source perspective, Source is the source, Channel is the destination
 			eventSources = append(eventSources, EventSourceOrSink{kameletBinding.Name, kameletBinding.Spec.Source.Ref.Name, kameletBinding.Spec.Sink.Ref.Name, nil})
 		}
 	}
 
-	printResponse(eventSources, http.StatusOK, w)
+	return
+}
+
+func filterByChannelRef(channelRef string, eventsIn []EventSourceOrSink) (eventsOut []EventSourceOrSink) {
+	eventsOut = []EventSourceOrSink{}
+	for _, event := range eventsIn {
+		if event.ChannelRef == channelRef {
+			eventsOut = append(eventsOut, event)
+		}
+	}
+
+	return
+}
+
+func filterByConnectorRef(connectorRef string, eventsIn []EventSourceOrSink) (eventsOut []EventSourceOrSink) {
+	eventsOut = []EventSourceOrSink{}
+	for _, event := range eventsIn {
+		if event.ConnectorRef == connectorRef {
+			eventsOut = append(eventsOut, event)
+		}
+	}
+
+	return
 }
 
 func UpdateChannel(w http.ResponseWriter, r *http.Request) {

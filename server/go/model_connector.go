@@ -9,10 +9,12 @@
 package swagger
 
 type Connector struct {
-
 	Name string `json:"name"`
 	// connector type, either source or sink
 	Type_ string `json:"type"`
+
+	EventSources []EventSourceOrSink `json:"eventSourceInstances,omitempty"`
+	EventSinks   []EventSourceOrSink `json:"eventSinkInstances,omitempty"`
 
 	Configuration string `json:"configuration"`
 }
