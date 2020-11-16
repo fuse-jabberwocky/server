@@ -13,6 +13,8 @@ type Connector struct {
 	// connector type, either source or sink
 	Type_ string `json:"type"`
 
+	Properties []string `json:"properties,omitempty"`
+
 	EventSources []EventSourceOrSink `json:"eventSourceInstances,omitempty"`
 	EventSinks   []EventSourceOrSink `json:"eventSinkInstances,omitempty"`
 

@@ -117,34 +117,50 @@ func createEventSourceOrSink(r *http.Request, kameletType string) (*v1alpha1.Kam
 	var eventSourceOrSink EventSourceOrSink
 	_ = json.NewDecoder(r.Body).Decode(&eventSourceOrSink)
 
-	emptyProps := []byte("{}")
-
+	convertedProperties := []byte(convertProperties(eventSourceOrSink.Properties))
 	eventOrigin := v1alpha1.Endpoint{
 		Ref: &corev1.ObjectReference{
 			Kind:       "Kamelet",
 			APIVersion: "camel.apache.org/v1alpha1",
 			Name:       eventSourceOrSink.ConnectorRef},
-		Properties: v1alpha1.EndpointProperties{emptyProps}}
+		// default, empty properties
+		Properties: v1alpha1.EndpointProperties{[]byte("{}")}}
 	eventDestination := v1alpha1.Endpoint{
 		Ref: &corev1.ObjectReference{
 			Kind:       "KafkaTopic",
 			APIVersion: "kafka.strimzi.io/v1beta1",
 			Name:       eventSourceOrSink.ChannelRef},
-		Properties: v1alpha1.EndpointProperties{emptyProps}}
+		Properties: v1alpha1.EndpointProperties{[]byte("{}")}}
 
 	kameletBinding := v1alpha1.NewKameletBinding("default", eventSourceOrSink.Name)
 
 	// It's either a source or a sink, based on the origin of events
 	if kameletType == "source" {
+		eventOrigin.Properties = v1alpha1.EndpointProperties{convertedProperties}
 		kameletBinding.Spec = v1alpha1.KameletBindingSpec{Source: eventOrigin, Sink: eventDestination}
-	} else {
+	} else if kameletType == "destination" {
+		eventDestination.Properties = v1alpha1.EndpointProperties{convertedProperties}
 		kameletBinding.Spec = v1alpha1.KameletBindingSpec{Source: eventDestination, Sink: eventOrigin}
+	} else {
+		return nil, errors.New("You need to specify either a source or sink type, provided: " + kameletType)
 	}
 
 	return kamelClient.CamelV1alpha1().KameletBindings("default").Create(ctx, &kameletBinding, metav1.CreateOptions{
 		metav1.TypeMeta{
 			Kind:       "KameletBinding",
 			APIVersion: "camel.apache.org/v1alpha1"}, nil, ""})
+}
+
+func convertProperties(properties []Property) (toRawProperties string) {
+	toRawProperties = "{"
+	for i, property := range properties {
+		toRawProperties += "\"" + property.Name + "\": \"" + property.Value + "\""
+		if i < len(properties)-1 {
+			toRawProperties += ", "
+		}
+	}
+	toRawProperties += "}"
+	return
 }
 
 func printResponse(obj interface{}, status int, w http.ResponseWriter) {
@@ -203,6 +219,7 @@ func getConnectors() (connectors []Connector) {
 		conf, _ := yaml.Marshal(kamelet)
 		connectorName := kamelet.Name
 		connectorType := kamelet.Labels["camel.apache.org/kamelet.type"]
+		properties := []string{}
 		eventSourceInstances := []EventSourceOrSink{}
 		eventSinkInstances := []EventSourceOrSink{}
 		if connectorType == "source" {
@@ -210,7 +227,11 @@ func getConnectors() (connectors []Connector) {
 		} else if connectorType == "sink" {
 			eventSinkInstances = filterByConnectorRef(connectorName, getEventSinks())
 		}
-		connectors = append(connectors, Connector{kamelet.Name, connectorType,
+		// Just get the name of the property
+		for key, _ := range kamelet.Spec.Definition.Properties {
+			properties = append(properties, key)
+		}
+		connectors = append(connectors, Connector{kamelet.Name, connectorType, properties,
 			eventSourceInstances, eventSinkInstances, string(conf)})
 	}
 
@@ -227,16 +248,31 @@ func GetEventSinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func getEventSinks() (eventSinks []EventSourceOrSink) {
-	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
-
 	eventSinks = []EventSourceOrSink{}
+	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
 	for _, kameletBinding := range kameletBindings.Items {
 		if kameletBinding.Spec.Sink.Ref.Kind == "Kamelet" {
 			// From sink perspective, Channel is the source, Source is the destination
-			eventSinks = append(eventSinks, EventSourceOrSink{kameletBinding.Name, kameletBinding.Spec.Sink.Ref.Name, kameletBinding.Spec.Source.Ref.Name, nil})
+			properties := fromRawProperties(kameletBinding.Spec.Sink.Properties.RawMessage)
+			eventSinks = append(eventSinks, EventSourceOrSink{
+				kameletBinding.Name,
+				kameletBinding.Spec.Sink.Ref.Name,
+				kameletBinding.Spec.Source.Ref.Name,
+				properties})
 		}
 	}
 
+	return
+}
+
+func fromRawProperties(data json.RawMessage) (properties []Property) {
+	var objmap map[string]json.RawMessage
+	_ = json.Unmarshal(data, &objmap)
+	for key, element := range objmap {
+		var value string
+		_ = json.Unmarshal(element, &value)
+		properties = append(properties, Property{key, value})
+	}
 	return
 }
 
@@ -250,12 +286,16 @@ func GetEventSources(w http.ResponseWriter, r *http.Request) {
 }
 
 func getEventSources() (eventSources []EventSourceOrSink) {
-	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
-
 	eventSources = []EventSourceOrSink{}
+	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
 	for _, kameletBinding := range kameletBindings.Items {
 		if kameletBinding.Spec.Source.Ref.Kind == "Kamelet" {
-			eventSources = append(eventSources, EventSourceOrSink{kameletBinding.Name, kameletBinding.Spec.Source.Ref.Name, kameletBinding.Spec.Sink.Ref.Name, nil})
+			properties := fromRawProperties(kameletBinding.Spec.Source.Properties.RawMessage)
+			eventSources = append(eventSources, EventSourceOrSink{
+				kameletBinding.Name,
+				kameletBinding.Spec.Source.Ref.Name,
+				kameletBinding.Spec.Sink.Ref.Name,
+				properties})
 		}
 	}
 

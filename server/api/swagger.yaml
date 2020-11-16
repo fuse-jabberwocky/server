@@ -335,8 +335,6 @@ components:
       - configuration
       - name
       - type
-      - eventSourceInstances
-      - eventSinkInstances
       type: object
       properties:
         name:
@@ -348,6 +346,10 @@ components:
           enum:
           - source
           - sink
+        properties:
+          type: array
+          items:
+            type: string
         eventSourceInstances:
           type: array
           description: the list of running event source instances
@@ -370,8 +372,6 @@ components:
       - configuration
       - name
       - type
-      - eventSources
-      - eventSinks
       type: object
       properties:
         name:
