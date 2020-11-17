@@ -4,6 +4,10 @@ This code generated server exposes the [REST API contract](https://github.com/fu
 
 The business logic will be provided by `Camel-K`.
 
+## Prerequisites
+
+You will need to connect to a Kubernetes cluster (also Minikube is fine) where Camel K operator version 1.2 is installed. For the time being this project is supporting also Strimzi Kafka to use the topics as `Channel`s.
+
 ## How to run
 
 Install local libraries (first time you execute):
