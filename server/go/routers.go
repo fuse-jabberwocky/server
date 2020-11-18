@@ -46,19 +46,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World!")
 }
 
-/*func Options(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
-	fmt.Fprintf(w, "OK")
-}*/
-
 var routes = Routes{
-	/*Route{
-		"Options",
-		"OPTIONS",
-		"/v0/*",
-		Options,
-	},*/
-
 	Route{
 		"Index",
 		"GET",
@@ -130,6 +118,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"GetEventSinkLogByName",
+		strings.ToUpper("Get"),
+		"/v0/eventsink/{eventSinkName}/log",
+		GetEventSinkLogByName,
+	},
+
+	Route{
 		"GetEventSinks",
 		strings.ToUpper("Get"),
 		"/v0/eventsink",
@@ -141,6 +136,13 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/v0/eventsource/{eventSourceName}",
 		GetEventSourceByName,
+	},
+
+	Route{
+		"GetEventSourceLogByName",
+		strings.ToUpper("Get"),
+		"/v0/eventsource/{eventSourceName}/log",
+		GetEventSourceLogByName,
 	},
 
 	Route{

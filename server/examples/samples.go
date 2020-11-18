@@ -9,9 +9,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	kamel "kamelets/pkg/client/clientset/versioned"
+	kamel "github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
 )
 
 func main() {
@@ -28,6 +29,9 @@ func main() {
 		log.Fatalf("Error building example clientset: %v", err)
 	}
 	ctx := context.Background()
+
+	clientset, _ := kubernetes.NewForConfig(cfg)
+	clientset.CoreV1().Pods("default").Get(context.TODO(), "example-xxxxx", metav1.GetOptions{})
 
 	kamelets, err := exampleClient.CamelV1alpha1().Kamelets("default").List(ctx, metav1.ListOptions{})
 	if err != nil {

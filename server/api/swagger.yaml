@@ -237,6 +237,34 @@ paths:
         "404":
           description: EventSource not found
           content: {}
+  /eventsource/{eventSourceName}/log:
+    get:
+      summary: Log the output of event source integration
+      description: Returns the log output
+      operationId: getEventSourceLogByName
+      parameters:
+      - name: eventSourceName
+        in: path
+        description: Name of event source to return
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Some log trace
+        "400":
+          description: Invalid name supplied
+          content: {}
+        "404":
+          description: EventSink not found
+          content: {}           
   /eventsink:
     get:
       summary: Find all event sinks
@@ -313,6 +341,34 @@ paths:
         "404":
           description: EventSink not found
           content: {}
+  /eventsink/{eventSinkName}/log:
+    get:
+      summary: Log the output of event sink integration
+      description: Returns the log output
+      operationId: getEventSinkLogByName
+      parameters:
+      - name: eventSinkName
+        in: path
+        description: Name of event sink to return
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Some log trace
+        "400":
+          description: Invalid name supplied
+          content: {}
+        "404":
+          description: EventSink not found
+          content: {}          
 components:
   schemas:
     Property:

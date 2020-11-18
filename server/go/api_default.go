@@ -13,12 +13,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	v1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
+	"github.com/gorilla/mux"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
@@ -29,14 +31,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	strimzi "./strimzi"
 )
 
-var kamelClient, kubeClient, ctx = localKubeConfiguration()
+var kamelClient, kubeClient, clientSet, ctx = localKubeConfiguration()
 
-func localKubeConfiguration() (*versioned.Clientset, client.Client, context.Context) {
+func localKubeConfiguration() (*versioned.Clientset, client.Client, *kubernetes.Clientset, context.Context) {
 	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	log.Println("Using kubeconfig file: ", kubeconfig)
 	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -48,9 +51,12 @@ func localKubeConfiguration() (*versioned.Clientset, client.Client, context.Cont
 	kubeClient, err := client.New(cfg, client.Options{})
 	checkFatalError(err)
 
+	clientSet, err := kubernetes.NewForConfig(cfg)
+	checkFatalError(err)
+
 	ctx := context.Background()
 
-	return kamelClient, kubeClient, ctx
+	return kamelClient, kubeClient, clientSet, ctx
 }
 
 func checkFatalError(err error) {
@@ -242,6 +248,32 @@ func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
 	printResponseError(errors.New("Not yet implemented"), w)
 }
 
+func GetEventSinkLogByName(w http.ResponseWriter, r *http.Request) {
+	eventSinkName := mux.Vars(r)["eventSinkName"]
+	logOutputByIntegrationName(w, eventSinkName)
+}
+
+func logOutputByIntegrationName(w http.ResponseWriter, integration string) {
+	pods, err := clientSet.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+		LabelSelector: "camel.apache.org/integration=" + integration})
+	if err != nil {
+		log.Fatal(err)
+	}
+	firstPod := pods.Items[0]
+	req := clientSet.CoreV1().Pods("default").GetLogs(firstPod.GetName(), &corev1.PodLogOptions{})
+
+	readCloser, err := req.Stream(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer readCloser.Close()
+	_, err = io.Copy(w, readCloser)
+	if err != nil {
+		printResponseError(err, w)
+	}
+}
+
 func GetEventSinks(w http.ResponseWriter, r *http.Request) {
 	eventSinks := getEventSinks()
 	printResponse(eventSinks, http.StatusOK, w)
@@ -278,6 +310,11 @@ func fromRawProperties(data json.RawMessage) (properties []Property) {
 
 func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
 	printResponseError(errors.New("Not yet implemented"), w)
+}
+
+func GetEventSourceLogByName(w http.ResponseWriter, r *http.Request) {
+	eventSourceName := mux.Vars(r)["eventSourceName"]
+	logOutputByIntegrationName(w, eventSourceName)
 }
 
 func GetEventSources(w http.ResponseWriter, r *http.Request) {
