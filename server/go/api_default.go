@@ -86,10 +86,10 @@ func printResponseError(err error, w http.ResponseWriter) {
 
 func Health(w http.ResponseWriter, r *http.Request) {
 	status := "UP"
-	connectorsCount := len(getConnectors())
-	channelsCount := len(getChannels())
-	eventSourcesCount := len(getEventSources())
-	eventSinksCount := len(getEventSinks())
+	connectorsCount := len(getConnectors(metav1.ListOptions{}))
+	channelsCount := len(getChannels(&client.ListOptions{}))
+	eventSourcesCount := len(getEventSources(metav1.ListOptions{}))
+	eventSinksCount := len(getEventSinks(metav1.ListOptions{}))
 	healthResponse := fmt.Sprintf("{\"status\": \"%s\", \"connectors\": %d, \"channels\": %d, \"eventSources\": %d, \"eventSinks\": %d}",
 		status, connectorsCount, channelsCount, eventSourcesCount, eventSinksCount)
 
@@ -199,30 +199,41 @@ func convertProperties(properties []Property) (toRawProperties string) {
 }
 
 func GetChannelByName(w http.ResponseWriter, r *http.Request) {
-	printResponseError(errors.New("Not yet implemented"), w)
+	channelName := mux.Vars(r)["channelName"]
+	channels := getChannels(&client.ListOptions{Raw: &metav1.ListOptions{FieldSelector: "metadata.name==" + channelName}})
+	if len(channels) == 0 {
+		// 404
+		printResponse("Not found: "+channelName, http.StatusNotFound, w)
+	} else if len(channels) > 1 {
+		// 500
+		printResponseError(errors.New("Found more than 1 channel with name "+channelName), w)
+	} else {
+		// 200
+		printResponse(channels[0], http.StatusOK, w)
+	}
 }
 
 func GetChannels(w http.ResponseWriter, r *http.Request) {
-	channels := getChannels()
+	channels := getChannels(&client.ListOptions{})
 	printResponse(channels, http.StatusOK, w)
 }
 
-func getChannels() (channels []Channel) {
+func getChannels(listOptions *client.ListOptions) (channels []Channel) {
 	kafkaTopics := &unstructured.UnstructuredList{}
 	kafkaTopics.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "kafka.strimzi.io",
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	_ = kubeClient.List(context.Background(), kafkaTopics)
+	_ = kubeClient.List(context.Background(), kafkaTopics, listOptions)
 
 	for _, kafkaTopic := range kafkaTopics.Items {
 		parsedTopic, _ := strimzi.FromUnstructuredObject(kafkaTopic.Object)
 		data, _ := json.Marshal(parsedTopic)
 		channelName := parsedTopic.Metadata.Name
 		if !strings.HasPrefix(channelName, "consumer-offset") {
-			eventSources := filterByChannelRef(channelName, getEventSources())
-			eventSinks := filterByChannelRef(channelName, getEventSinks())
+			eventSources := filterByChannelRef(channelName, getEventSources(metav1.ListOptions{}))
+			eventSinks := filterByChannelRef(channelName, getEventSinks(metav1.ListOptions{}))
 			channels = append(channels, Channel{channelName, "kafka", eventSources, eventSinks, string(data)})
 		}
 	}
@@ -231,16 +242,27 @@ func getChannels() (channels []Channel) {
 }
 
 func GetConnectorByName(w http.ResponseWriter, r *http.Request) {
-	printResponseError(errors.New("Not yet implemented"), w)
+	connectorName := mux.Vars(r)["connectorName"]
+	connectors := getConnectors(metav1.ListOptions{FieldSelector: "metadata.name==" + connectorName})
+	if len(connectors) == 0 {
+		// 404
+		printResponse("Not found: "+connectorName, http.StatusNotFound, w)
+	} else if len(connectors) > 1 {
+		// 500
+		printResponseError(errors.New("Found more than 1 connector with name "+connectorName), w)
+	} else {
+		// 200
+		printResponse(connectors[0], http.StatusOK, w)
+	}
 }
 
 func GetConnectors(w http.ResponseWriter, r *http.Request) {
-	connectors := getConnectors()
+	connectors := getConnectors(metav1.ListOptions{})
 	printResponse(connectors, http.StatusOK, w)
 }
 
-func getConnectors() (connectors []Connector) {
-	kamelets, _ := kamelClient.CamelV1alpha1().Kamelets("default").List(ctx, metav1.ListOptions{})
+func getConnectors(listOptions metav1.ListOptions) (connectors []Connector) {
+	kamelets, _ := kamelClient.CamelV1alpha1().Kamelets("default").List(ctx, listOptions)
 
 	connectors = []Connector{}
 	for _, kamelet := range kamelets.Items {
@@ -251,9 +273,9 @@ func getConnectors() (connectors []Connector) {
 		eventSourceInstances := []EventSourceOrSink{}
 		eventSinkInstances := []EventSourceOrSink{}
 		if connectorType == "source" {
-			eventSourceInstances = filterByConnectorRef(connectorName, getEventSources())
+			eventSourceInstances = filterByConnectorRef(connectorName, getEventSources(metav1.ListOptions{}))
 		} else if connectorType == "sink" {
-			eventSinkInstances = filterByConnectorRef(connectorName, getEventSinks())
+			eventSinkInstances = filterByConnectorRef(connectorName, getEventSinks(metav1.ListOptions{}))
 		}
 		// Just get the name of the property
 		for key, _ := range kamelet.Spec.Definition.Properties {
@@ -267,7 +289,18 @@ func getConnectors() (connectors []Connector) {
 }
 
 func GetEventSinkByName(w http.ResponseWriter, r *http.Request) {
-	printResponseError(errors.New("Not yet implemented"), w)
+	eventSinkName := mux.Vars(r)["eventSinkName"]
+	eventSinks := getEventSinks(metav1.ListOptions{FieldSelector: "metadata.name==" + eventSinkName})
+	if len(eventSinks) == 0 {
+		// 404
+		printResponse("Not found: "+eventSinkName, http.StatusNotFound, w)
+	} else if len(eventSinks) > 1 {
+		// 500
+		printResponseError(errors.New("Found more than 1 event sinks with name "+eventSinkName), w)
+	} else {
+		// 200
+		printResponse(eventSinks[0], http.StatusOK, w)
+	}
 }
 
 func GetEventSinkLogByName(w http.ResponseWriter, r *http.Request) {
@@ -297,13 +330,13 @@ func logOutputByIntegrationName(w http.ResponseWriter, integration string) {
 }
 
 func GetEventSinks(w http.ResponseWriter, r *http.Request) {
-	eventSinks := getEventSinks()
+	eventSinks := getEventSinks(metav1.ListOptions{})
 	printResponse(eventSinks, http.StatusOK, w)
 }
 
-func getEventSinks() (eventSinks []EventSourceOrSink) {
+func getEventSinks(listOptions metav1.ListOptions) (eventSinks []EventSourceOrSink) {
 	eventSinks = []EventSourceOrSink{}
-	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
+	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, listOptions)
 	for _, kameletBinding := range kameletBindings.Items {
 		if kameletBinding.Spec.Sink.Ref.Kind == "Kamelet" {
 			// From sink perspective, Channel is the source, Source is the destination
@@ -331,7 +364,18 @@ func fromRawProperties(data json.RawMessage) (properties []Property) {
 }
 
 func GetEventSourceByName(w http.ResponseWriter, r *http.Request) {
-	printResponseError(errors.New("Not yet implemented"), w)
+	eventSourceName := mux.Vars(r)["eventSourceName"]
+	eventSources := getEventSources(metav1.ListOptions{FieldSelector: "metadata.name==" + eventSourceName})
+	if len(eventSources) == 0 {
+		// 404
+		printResponse("Not found: "+eventSourceName, http.StatusNotFound, w)
+	} else if len(eventSources) > 1 {
+		// 500
+		printResponseError(errors.New("Found more than 1 event sources with name "+eventSourceName), w)
+	} else {
+		// 200
+		printResponse(eventSources[0], http.StatusOK, w)
+	}
 }
 
 func GetEventSourceLogByName(w http.ResponseWriter, r *http.Request) {
@@ -340,13 +384,13 @@ func GetEventSourceLogByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetEventSources(w http.ResponseWriter, r *http.Request) {
-	eventSources := getEventSources()
+	eventSources := getEventSources(metav1.ListOptions{})
 	printResponse(eventSources, http.StatusOK, w)
 }
 
-func getEventSources() (eventSources []EventSourceOrSink) {
+func getEventSources(listOptions metav1.ListOptions) (eventSources []EventSourceOrSink) {
 	eventSources = []EventSourceOrSink{}
-	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, metav1.ListOptions{})
+	kameletBindings, _ := kamelClient.CamelV1alpha1().KameletBindings("default").List(ctx, listOptions)
 	for _, kameletBinding := range kameletBindings.Items {
 		if kameletBinding.Spec.Source.Ref.Kind == "Kamelet" {
 			properties := fromRawProperties(kameletBinding.Spec.Source.Properties.RawMessage)
