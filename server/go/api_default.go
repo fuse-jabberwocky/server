@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	v1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/gorilla/mux"
@@ -65,6 +66,34 @@ func checkFatalError(err error) {
 		// Non recoverable error
 		os.Exit(1)
 	}
+}
+
+func printResponse(obj interface{}, status int, w http.ResponseWriter) {
+	data, _ := json.Marshal(obj)
+	printResponseRaw(string(data), "application/json; charset=UTF-8", status, w)
+}
+
+func printResponseRaw(data string, contentType string, status int, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(status)
+	fmt.Fprintf(w, data)
+}
+
+func printResponseError(err error, w http.ResponseWriter) {
+	w.WriteHeader(500)
+	fmt.Fprintf(w, err.Error())
+}
+
+func Health(w http.ResponseWriter, r *http.Request) {
+	status := "UP"
+	connectorsCount := len(getConnectors())
+	channelsCount := len(getChannels())
+	eventSourcesCount := len(getEventSources())
+	eventSinksCount := len(getEventSinks())
+	healthResponse := fmt.Sprintf("{\"status\": \"%s\", \"connectors\": %d, \"channels\": %d, \"eventSources\": %d, \"eventSinks\": %d}",
+		status, connectorsCount, channelsCount, eventSourcesCount, eventSinksCount)
+
+	printResponseRaw(healthResponse, "application/json; charset=UTF-8", 200, w)
 }
 
 func AddChannel(w http.ResponseWriter, r *http.Request) {
@@ -169,24 +198,16 @@ func convertProperties(properties []Property) (toRawProperties string) {
 	return
 }
 
-func printResponse(obj interface{}, status int, w http.ResponseWriter) {
-	data, _ := json.Marshal(obj)
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(status)
-	fmt.Fprintf(w, string(data))
-}
-
-func printResponseError(err error, w http.ResponseWriter) {
-	w.WriteHeader(500)
-	fmt.Fprintf(w, err.Error())
-}
-
 func GetChannelByName(w http.ResponseWriter, r *http.Request) {
 	printResponseError(errors.New("Not yet implemented"), w)
 }
 
 func GetChannels(w http.ResponseWriter, r *http.Request) {
+	channels := getChannels()
+	printResponse(channels, http.StatusOK, w)
+}
 
+func getChannels() (channels []Channel) {
 	kafkaTopics := &unstructured.UnstructuredList{}
 	kafkaTopics.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "kafka.strimzi.io",
@@ -195,17 +216,18 @@ func GetChannels(w http.ResponseWriter, r *http.Request) {
 	})
 	_ = kubeClient.List(context.Background(), kafkaTopics)
 
-	channels := []Channel{}
 	for _, kafkaTopic := range kafkaTopics.Items {
 		parsedTopic, _ := strimzi.FromUnstructuredObject(kafkaTopic.Object)
 		data, _ := json.Marshal(parsedTopic)
 		channelName := parsedTopic.Metadata.Name
-		eventSources := filterByChannelRef(channelName, getEventSources())
-		eventSinks := filterByChannelRef(channelName, getEventSinks())
-		channels = append(channels, Channel{channelName, "kafka", eventSources, eventSinks, string(data)})
+		if !strings.HasPrefix(channelName, "consumer-offset") {
+			eventSources := filterByChannelRef(channelName, getEventSources())
+			eventSinks := filterByChannelRef(channelName, getEventSinks())
+			channels = append(channels, Channel{channelName, "kafka", eventSources, eventSinks, string(data)})
+		}
 	}
 
-	printResponse(channels, http.StatusOK, w)
+	return
 }
 
 func GetConnectorByName(w http.ResponseWriter, r *http.Request) {

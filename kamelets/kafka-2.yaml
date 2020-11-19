@@ -2,7 +2,7 @@
 apiVersion: kafka.strimzi.io/v1beta1
 kind: KafkaTopic
 metadata:
-  name: api-provider-events
+  name: timer-events
   labels:
     strimzi.io/cluster: my-cluster
 spec:

@@ -55,6 +55,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"Health",
+		"GET",
+		"/health/",
+		Health,
+	},
+
+	Route{
 		"AddChannel",
 		strings.ToUpper("Post"),
 		"/v0/channel",
