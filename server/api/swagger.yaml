@@ -85,6 +85,28 @@ paths:
         "404":
           description: Connector not found
           content: {}
+    delete:
+      summary: delete a connector
+      description: delete a connector
+      operationId: deleteConnectorByName
+      parameters:
+      - name: connectorName
+        in: path
+        description: Name of connector to delete
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid name supplied
+        "404":
+          description: Connector not found
+        "500":
+          description: Server error
   /channel:
     get:
       summary: Find all channels
@@ -161,6 +183,27 @@ paths:
         "404":
           description: Channel not found
           content: {}
+      summary: delete a channel
+      description: delete a channel
+      operationId: deleteChannelByName
+      parameters:
+      - name: channelName
+        in: path
+        description: Name of the channel to delete
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid name supplied
+        "404":
+          description: Channel not found
+        "500":
+          description: Server error          
   /eventsource:
     get:
       summary: Find all event sources
@@ -237,6 +280,28 @@ paths:
         "404":
           description: EventSource not found
           content: {}
+    delete:
+      summary: delete an event source
+      description: delete an event source
+      operationId: deleteEventSourceByName
+      parameters:
+      - name: eventSourceName
+        in: path
+        description: Name of the event source to delete
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid name supplied
+        "404":
+          description: Event Source not found
+        "500":
+          description: Server error          
   /eventsource/{eventSourceName}/log:
     get:
       summary: Log the output of event source integration
@@ -341,6 +406,28 @@ paths:
         "404":
           description: EventSink not found
           content: {}
+    delete:
+      summary: delete an event sink
+      description: delete an event sink
+      operationId: deleteEventSinkByName
+      parameters:
+      - name: eventSinkName
+        in: path
+        description: Name of the event sink to delete
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Invalid name supplied
+        "404":
+          description: Event Sink not found
+        "500":
+          description: Server error          
   /eventsink/{eventSinkName}/log:
     get:
       summary: Log the output of event sink integration

@@ -31,6 +31,7 @@ import (
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -457,4 +458,62 @@ func UpdateEventSink(w http.ResponseWriter, r *http.Request) {
 
 func UpdateEventSource(w http.ResponseWriter, r *http.Request) {
 	printResponseError(errors.New("Not yet implemented"), w)
+}
+
+func DeleteConnectorByName(w http.ResponseWriter, r *http.Request) {
+	connectorName := mux.Vars(r)["connectorName"]
+	connectors := getConnectors(metav1.ListOptions{FieldSelector: "metadata.name==" + connectorName})
+	if len(connectors) == 0 {
+		printResponse("Not found: "+connectorName, http.StatusNotFound, w)
+	} else if len(connectors) > 1 {
+		printResponseError(errors.New("Found more than 1 connector with name "+connectorName), w)
+	} else {
+		connector := connectors[0]
+		eventSinks := len(connector.EventSinks)
+		eventSources := len(connector.EventSources)
+		if eventSinks > 0 || eventSources > 0 {
+			printResponseError(errors.New(fmt.Sprintf("The connector has %d event sources and %d event sinks bound!", eventSources, eventSinks)), w)
+		} else {
+			err := kamelClient.CamelV1alpha1().Kamelets("default").Delete(ctx, connectorName, v1.DeleteOptions{})
+			if err != nil {
+				printResponseError(err, w)
+			} else {
+				printResponse("Deleted", http.StatusNoContent, w)
+			}
+		}
+	}
+}
+
+func DeleteEventSinkByName(w http.ResponseWriter, r *http.Request) {
+	eventSinkName := mux.Vars(r)["eventSinkName"]
+	eventSinks := getEventSinks(metav1.ListOptions{FieldSelector: "metadata.name==" + eventSinkName})
+	if len(eventSinks) == 0 {
+		printResponse("Not found: "+eventSinkName, http.StatusNotFound, w)
+	} else if len(eventSinks) > 1 {
+		printResponseError(errors.New("Found more than 1 event sink with name "+eventSinkName), w)
+	} else {
+		err := kamelClient.CamelV1alpha1().KameletBindings("default").Delete(ctx, eventSinkName, v1.DeleteOptions{})
+		if err != nil {
+			printResponseError(err, w)
+		} else {
+			printResponse("Deleted", http.StatusNoContent, w)
+		}
+	}
+}
+
+func DeleteEventSourceByName(w http.ResponseWriter, r *http.Request) {
+	eventSourceName := mux.Vars(r)["eventSourceName"]
+	eventSources := getEventSources(metav1.ListOptions{FieldSelector: "metadata.name==" + eventSourceName})
+	if len(eventSources) == 0 {
+		printResponse("Not found: "+eventSourceName, http.StatusNotFound, w)
+	} else if len(eventSources) > 1 {
+		printResponseError(errors.New("Found more than 1 event source with name "+eventSourceName), w)
+	} else {
+		err := kamelClient.CamelV1alpha1().KameletBindings("default").Delete(ctx, eventSourceName, v1.DeleteOptions{})
+		if err != nil {
+			printResponseError(err, w)
+		} else {
+			printResponse("Deleted", http.StatusNoContent, w)
+		}
+	}
 }

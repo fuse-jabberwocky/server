@@ -106,6 +106,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"DeleteConnectorByName",
+		strings.ToUpper("Delete"),
+		"/v0/connector/{connectorName}",
+		DeleteConnectorByName,
+	},
+
+	Route{
 		"GetConnectors",
 		strings.ToUpper("Get"),
 		"/v0/connector",
@@ -117,6 +124,13 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/v0/eventsink/{eventSinkName}",
 		GetEventSinkByName,
+	},
+
+	Route{
+		"DeleteEventSinkByName",
+		strings.ToUpper("Delete"),
+		"/v0/eventsink/{eventSinkName}",
+		DeleteEventSinkByName,
 	},
 
 	Route{
@@ -138,6 +152,13 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/v0/eventsource/{eventSourceName}",
 		GetEventSourceByName,
+	},
+
+	Route{
+		"DeleteEventSourceByName",
+		strings.ToUpper("Delete"),
+		"/v0/eventsource/{eventSourceName}",
+		DeleteEventSourceByName,
 	},
 
 	Route{
