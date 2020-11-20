@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -82,6 +83,21 @@ func printResponseRaw(data string, contentType string, status int, w http.Respon
 func printResponseError(err error, w http.ResponseWriter) {
 	w.WriteHeader(500)
 	fmt.Fprintf(w, err.Error())
+}
+
+func OpenAPI(w http.ResponseWriter, r *http.Request) {
+	file, err := os.Open("api/swagger.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		printResponseError(err, w)
+		return
+	}
+	printResponseRaw(string(data), "text/plain; charset=UTF-8", 200, w)
 }
 
 func Health(w http.ResponseWriter, r *http.Request) {
