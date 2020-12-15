@@ -23,9 +23,9 @@ import (
 
 	v1alpha1 "github.com/apache/camel-k/pkg/apis/camel/v1alpha1"
 	"github.com/gorilla/mux"
-	"knative.dev/serving/pkg/client/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
 	kamel "github.com/apache/camel-k/pkg/client/camel/clientset/versioned"
 
 	"gopkg.in/yaml.v3"
