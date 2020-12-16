@@ -1,6 +1,6 @@
 # Jabberwocky API Adapter Layer
 
-This code generated server exposes the [REST API contract](./blob/main/api/swagger.yaml) that is expected to be used by a UI for managing `Connector`s, `Channel`s and `Event Source/Sink`s.
+This code generated server exposes the [REST API contract](./api/swagger.yaml) that is expected to be used by a UI for managing `Connector`s, `Channel`s and `Event Source/Sink`s.
 
 The business logic will be provided by `Camel-K`.
 
