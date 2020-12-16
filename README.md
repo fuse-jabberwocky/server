@@ -1,6 +1,6 @@
 # Jabberwocky API Adapter Layer
 
-This code generated server exposes the [REST API contract](https://github.com/fuse-jabberwocky/jabberwocky-api/blob/main/server/api/swagger.yaml) that is expected to be used by a UI for managing `Connector`s, `Channel`s and `Event Source/Sink`s.
+This code generated server exposes the [REST API contract](./blob/main/api/swagger.yaml) that is expected to be used by a UI for managing `Connector`s, `Channel`s and `Event Source/Sink`s.
 
 The business logic will be provided by `Camel-K`.
 
@@ -10,17 +10,16 @@ You will need to connect to a Kubernetes cluster (also Minikube is fine) where C
 
 ## How to run
 
-Install local libraries (first time you execute):
+Build the executable:
 
 ```
-go get github.com/gorilla/mux
-...
+go build cmd/server/main.go
 ```
 
 Make sure your Kubernetes cluster is up and running (ie, Minikube), then, launch the local server:
 
 ```
-go run ./server/main.go
+go run cmd/server/main.go
 ```
 
 Test the application browsing the API:
@@ -44,4 +43,4 @@ $ http http://localhost:8080/v0/connector
 ```
 ## Caveat
 
-The project is still in prototype phase, structure and dependency managment need to be reviewed ([#6](https://github.com/fuse-jabberwocky/jabberwocky-api/issues/6))
+The project is still in prototype phase, structure and dependencies may change.
