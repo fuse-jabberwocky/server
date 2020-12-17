@@ -43,8 +43,15 @@ import (
 var kamelClient, kubeClient, clientSet, ctx = localKubeConfiguration()
 
 func localKubeConfiguration() (*versioned.Clientset, client.Client, *kubernetes.Clientset, context.Context) {
+
 	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	log.Println("Using kubeconfig file: ", kubeconfig)
+	if _, err := os.Stat(kubeconfig); os.IsNotExist(err) {
+		log.Println("Trying to connect to in cluster configuration")
+		kubeconfig = ""
+	} else {
+		log.Println("Using local kubeconfig file: ", kubeconfig)
+	}
+
 	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	checkFatalError(err)
 
