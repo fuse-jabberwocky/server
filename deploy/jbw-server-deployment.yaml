@@ -19,9 +19,10 @@ spec:
         tier: backend
         app: "jabberwocky"
     spec:
+      serviceAccountName: jabberwocky-server
       containers:
         - name: jabberwocky-server
-          image: docker.io/squakez/jbw:latest
+          image: docker.io/squakez/jbw-server:latest
           imagePullPolicy: Always
           ports:
             - name: http

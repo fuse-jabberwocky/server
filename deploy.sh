@@ -1,4 +1,11 @@
 VERSION="latest"
 
-docker tag jabberwocky-server:$VERSION  squakez/jbw:$VERSION
-docker push squakez/jbw:$VERSION
+if [ -z "$1" ] ; then
+    echo "No argument supplied, building the docker image as LATEST"
+else
+    VERSION="$1"
+    echo "Building the docker image as $VERSION"
+fi
+
+docker tag jbw-server:$VERSION  squakez/jbw-server:$VERSION
+docker push squakez/jbw-server:$VERSION

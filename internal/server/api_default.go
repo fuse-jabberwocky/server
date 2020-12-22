@@ -111,7 +111,7 @@ func OpenAPI(w http.ResponseWriter, r *http.Request) {
 func Health(w http.ResponseWriter, r *http.Request) {
 	status := "UP"
 	connectorsCount := len(getConnectors(metav1.ListOptions{}))
-	channelsCount := len(getChannels(&client.ListOptions{}))
+	channelsCount := len(getChannels(&client.ListOptions{Namespace: "default"}))
 	eventSourcesCount := len(getEventSources(metav1.ListOptions{}))
 	eventSinksCount := len(getEventSinks(metav1.ListOptions{}))
 	healthResponse := fmt.Sprintf("{\"status\": \"%s\", \"connectors\": %d, \"channels\": %d, \"eventSources\": %d, \"eventSinks\": %d}",
@@ -224,7 +224,8 @@ func convertProperties(properties []Property) (toRawProperties string) {
 
 func GetChannelByName(w http.ResponseWriter, r *http.Request) {
 	channelName := mux.Vars(r)["channelName"]
-	channels := getChannels(&client.ListOptions{Raw: &metav1.ListOptions{FieldSelector: "metadata.name==" + channelName}})
+	channels := getChannels(&client.ListOptions{Namespace: "default",
+		Raw: &metav1.ListOptions{FieldSelector: "metadata.name==" + channelName}})
 	if len(channels) == 0 {
 		// 404
 		printResponse("Not found: "+channelName, http.StatusNotFound, w)
@@ -238,7 +239,7 @@ func GetChannelByName(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetChannels(w http.ResponseWriter, r *http.Request) {
-	channels := getChannels(&client.ListOptions{})
+	channels := getChannels(&client.ListOptions{Namespace: "default"})
 	printResponse(channels, http.StatusOK, w)
 }
 
@@ -249,7 +250,11 @@ func getChannels(listOptions *client.ListOptions) (channels []Channel) {
 		Kind:    "KafkaTopic",
 		Version: "v1beta1",
 	})
-	_ = kubeClient.List(context.Background(), kafkaTopics, listOptions)
+	err := kubeClient.List(context.Background(), kafkaTopics, listOptions)
+	if err != nil {
+		fmt.Println("[ERROR] ", err.Error())
+		return
+	}
 
 	for _, kafkaTopic := range kafkaTopics.Items {
 		parsedTopic, _ := strimzi.FromUnstructuredObject(kafkaTopic.Object)

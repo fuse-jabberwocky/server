@@ -27,11 +27,10 @@ require (
 	go.uber.org/goleak v1.1.10 // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	k8s.io/api v0.18.9
-	k8s.io/apimachinery v0.18.9
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/api v0.19.2
+	k8s.io/apimachinery v0.19.2
+	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.19.2 // indirect
-	k8s.io/utils v0.0.0-20200912215256-4140de9c8800 // indirect
 	knative.dev/serving v0.19.0
 	sigs.k8s.io/controller-runtime v0.6.4
 	sigs.k8s.io/controller-tools v0.0.0-20200528125929-5c0c6ae3b64b // indirect
@@ -40,9 +39,12 @@ require (
 replace (
 	github.com/apache/camel-k/pkg/apis/camel => github.com/apache/camel-k/pkg/apis/camel v0.0.0-20201030155835-ccf1c2755f2a
 	github.com/apache/camel-k/pkg/client/camel => github.com/apache/camel-k/pkg/client/camel v0.0.0-20201030155835-ccf1c2755f2a
-	k8s.io/client-go => k8s.io/client-go v0.18.9
-	k8s.io/code-generator => k8s.io/code-generator v0.18.9
+	k8s.io/api => k8s.io/api v0.19.0
+	k8s.io/apimachinery => k8s.io/apimachinery v0.19.0
+	k8s.io/client-go => k8s.io/client-go v0.19.0
+	k8s.io/code-generator => k8s.io/code-generator v0.19.0
 	knative.dev/serving => knative.dev/serving v0.18.0
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.7.0
 )
 
 // Local modules

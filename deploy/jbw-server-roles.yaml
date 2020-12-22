@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jabberwocky-server
+  namespace: default
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jabberwocky-server-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["list"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]  
+- apiGroups: ["camel.apache.org"]
+  resources: ["kamelets", "kameletbindings", "integrations"]
+  verbs: ["*"]
+- apiGroups: ["kafka.strimzi.io"]
+  resources: ["kafkatopics"]
+  verbs: ["get", "list"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jabberwocky-server-rolebinding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: jabberwocky-server
+  namespace: default
+roleRef:
+  kind: Role
+  name: jabberwocky-server-role
+  apiGroup: rbac.authorization.k8s.io
