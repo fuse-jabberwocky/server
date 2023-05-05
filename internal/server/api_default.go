@@ -43,7 +43,7 @@ import (
 var kamelClient, kubeClient, clientSet, ctx = localKubeConfiguration()
 
 func localKubeConfiguration() (*versioned.Clientset, client.Client, *kubernetes.Clientset, context.Context) {
-
+	// Some comment to test Covecov
 	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
 	if _, err := os.Stat(kubeconfig); os.IsNotExist(err) {
 		log.Println("Trying to connect to in cluster configuration")
